@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+
+    <meta charset="utf-8"/>
+
+    <title>Demo Chat</title>
+
+    <link href="css/bootstrap.css" rel="stylesheet">
+    <script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js"/>
+
+    <style>
+        body {
+            padding: 20px;
+        }
+
+        #console {
+            height: 400px;
+            overflow: auto;
+        }
+
+        .username-msg {
+            color: orange;
+        }
+
+        .connect-msg {
+            color: green;
+        }
+
+        .disconnect-msg {
+            color: red;
+        }
+
+        .send-msg {
+            color: #888
+        }
+    </style>
+
+
+    <script src="js/moment.min.js"></script>
+    <script src="js/protobuf.min.js"></script>
+
+    <script>
+
+        let cusMessage;
+
+        /**
+         * 初始化 cusMessage
+         * @param fileName
+         * @param className
+         */
+        function initCusMsg(fileName, className) {
+            console.log("init cusMsg")
+            return protobuf.load(fileName)
+                .then((root) => {
+                    cusMessage = root.lookupType(className);
+                    return cusMessage;
+                });
+        }
+
+        var userName = 'user' + Math.floor((Math.random() * 1000) + 1);
+
+        var ws = new WebSocket("ws://localhost:18080/ws?roomId=111");
+
+        ws.onopen = function (evt) {
+            console.log("Connection open ...");
+            let cusMsgPromise = initCusMsg("message.proto", "com.itrjp.im.proto.Message");
+
+            cusMsgPromise.then((cusMsg) => {
+                //参考 https://github.com/protobufjs/protobuf.js#using-proto-files
+
+                // Exemplary payload
+                let cuTime = new Date().getTime();
+                let payload = {seq: 0, type: 0, content: "test", timestamp: new Date().getTime()};
+                // Verify the payload if necessary (i.e. when possibly incomplete or invalid)
+                let errMsg = cusMsg.verify(payload);
+                if (errMsg) {
+                    throw Error(errMsg);
+                }
+                // Create a new message
+                let message = cusMsg.create(payload); // or use .fromObject if conversion is necessary
+                // Encode a message to an Uint8Array (browser) or Buffer (node)
+                buffer = cusMsg.encode(message).finish();
+
+                ws.send(buffer);
+            });
+        };
+
+        ws.onmessage = function (event) {
+            let reader = new FileReader();
+            reader.readAsArrayBuffer(event.data);
+            reader.onload = () => {
+                let arrayBuffer = reader.result;
+                let buffer = new Uint8Array(arrayBuffer);
+
+                let resObject = cusMessage.decode(buffer);
+                console.log(resObject)
+                console.log("Received Message: " + resObject);
+                // var data = JSON.parse(evt.data)
+                output('<span class="username-msg">' + "data.userName" + ':</span> ' + resObject.data);
+            };
+        };
+
+        ws.onclose = function (evt) {
+            console.log("Connection closed.");
+        };
+
+        function sendDisconnect() {
+            socket.disconnect();
+        }
+        var i = 1;
+        function sendMessage() {
+            var message = $('#msg').val();
+            $('#msg').val('');
+
+            //  MessageType type = 3; // 消息类型
+            // int64 timestamp = 1; // 时间戳
+            // string content = 2; // 消息体
+            // int64 seq = 4; // 序号
+            let payload = {seq: i++, type: 1, content: message, timestamp: new Date().getTime()};
+            console.log(`payload: ${JSON.stringify(payload)}`)
+            let data = cusMessage.create(payload); // or use .fromObject if conversion is necessary
+            buffer = cusMessage.encode(data).finish();
+            ws.send(buffer);
+        }
+
+        function output(message) {
+            var currentTime = "<span class='time'>" + moment().format('HH:mm:ss.SSS') + "</span>";
+            var element = $("<div>" + currentTime + " " + message + "</div>");
+            $('#console').prepend(element);
+        }
+    </script>
+</head>
+
+<body>
+
+<h1>Netty-socketio Demo Chat</h1>
+
+<br/>
+<div style="display: flex">
+    <div class="chat well" style="margin-right: 12px;width: 60%">
+        <h1>Chat</h1>
+        <div id="console">
+
+        </div>
+    </div>
+
+        <div style="margin-left: 12px;width: 40%" id="user-list" class="well">
+            <h1>User List</h1>
+        </div>
+</div>
+
+
+<form class="well form-inline" onsubmit="return false;">
+    <input id="msg" class="input-xlarge" type="text" placeholder="Type something..."/>
+    <button type="button" onClick="sendMessage()" class="btn" id="send">Send</button>
+    <button type="button" onClick="sendDisconnect()" class="btn">Disconnect</button>
+</form>
+
+
+</body>
+
+</html>

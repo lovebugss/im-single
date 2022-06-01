@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package com.itrjp.im.proto;
+
+message KafkaMessage{
+  int64 time = 1;
+  string messageId = 2;
+  string from = 3;
+  string to = 4;
+  int32 type = 5;
+  string content = 6;
+}
