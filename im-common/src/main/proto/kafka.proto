@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package com.itrjp.im.kafka;
+option java_multiple_files = true;
+
+
+message KafkaMessage {
+  DataType dataType = 1;
+  bytes data = 2;
+  string  from = 3;
+  string  to = 4;
+  int64 timestamp = 5;
+  string nodeId = 6;
+}
+
+enum DataType {
+  MESSAGE = 0;
+  EVENT = 1;
+}
